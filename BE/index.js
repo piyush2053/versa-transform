@@ -1,6 +1,8 @@
 const express = require('express');
 const multer = require('multer');
-const pdf2docx = require('pdf2docx');
+const fs = require('fs');
+const PDFParser = require('pdf-parse');
+const mammoth = require('mammoth');
 
 const app = express();
 const port = 5000;
@@ -12,17 +14,23 @@ const upload = multer({ storage: storage });
 app.use(express.json());
 
 // Endpoint for file upload and conversion
-app.post('/upload', upload.single('pdfFile'), (req, res) => {
+app.post('/upload', upload.single('pdfFile'), async (req, res) => {
   try {
     const pdfBuffer = req.file.buffer;
-
-    // Convert PDF buffer to Word buffer using pdf2docx library
-    const wordBuffer = pdf2docx(pdfBuffer);
-
-    // Send the Word file as a response
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-    res.setHeader('Content-Disposition', 'attachment; filename=converted.docx');
-    res.send(wordBuffer);
+    const data = await PDFParser(pdfBuffer);
+    mammoth.extractRawText({ array: data.text })
+      .then((result) => {
+        const wordContent = result.value;
+        const tempFilePath = 'converted.docx';
+        fs.writeFileSync(tempFilePath, wordContent);
+        res.download(tempFilePath, 'converted.docx', () => {
+          fs.unlinkSync(tempFilePath);
+        });
+      })
+      .catch((error) => {
+        console.error('Error converting to Word:', error);
+        res.status(500).json({ error: 'Error converting to Word' });
+      });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Internal server error' });
@@ -30,5 +38,5 @@ app.post('/upload', upload.single('pdfFile'), (req, res) => {
 });
 
 app.listen(port, () => {
-  console.log(`Server is running on http://localhost:${port}`);
+  console.log(`Server is running on ${port}`);
 });
