@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import axios from 'axios';
 
 const PDF_TO_WORD = () => {
   const [selectedFile, setSelectedFile] = useState(null);
@@ -20,20 +19,24 @@ const PDF_TO_WORD = () => {
       const formData = new FormData();
       formData.append('pdfFile', selectedFile);
 
-      const response = await axios.post('http://localhost:5000/upload', formData, {
-        responseType: 'blob', // Receive response as a blob
+      const response = await fetch('http://localhost:5000/upload', {
+        method: 'POST',
+        body: formData,
       });
 
-      // Create a blob and download the converted Word file
-      const blob = new Blob([response.data], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = 'converted.docx';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      if (response.ok) {
+        const blob = await response.blob();
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = 'converted.docx';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        console.error('Error uploading file:', response.statusText);
+      }
     } catch (error) {
-      console.error('Error uploading file:', error);
+      console.error('Error uploading file:', error.message);
     }
   };
 
